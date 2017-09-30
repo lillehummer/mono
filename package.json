@@ -1,0 +1,25 @@
+{
+  "name": "mono",
+  "description": "Simple AJAX page loader for fancy browsing experiences.",
+  "version": "0.1.0",
+  "author": "Charles Beaumont <charles@101010.co>",
+  "homepage": "https://github.com/lillehummer/mono",
+  "license": "MIT",
+  "repository": "http://github.com/lillehummer/mono",
+  "maintainers": [
+    {
+      "name": "Charles Beaumont",
+      "email": "charles@101010.co",
+      "web": "https://101010.co"
+    }
+  ],
+  "main": "dist/mono.min.js",
+  "devDependencies": {
+  },
+  "dependencies": {
+    "webpack": "*"
+  },
+  "scripts": {
+    "start": "gulp & theme watch -e production -d dist --notify=./theme.update"
+  }
+}
