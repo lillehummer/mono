@@ -1,203 +1,218 @@
 import ajax from './ajax'
 
-//   {
-//     this.url = doc.location.href;
-//     this.beforeLoading = new global.Promise(function(resolve, reject) { resolve() });
-//     this.updateContent = new Promise(function(resolve, reject) { resolve() });
-//     this.metaKeyIsPressed = false;
-//   }
+/**
+ * Returns a Promise that immediately resolves.
+ * @return {Promise}
+ */
+const resolvePromise = () => new Promise(function (resolve, reject) { resolve() })
 
-const mono = () => {
-  var isWindow = global === window
-  var w = isWindow ? global : window
-  var doc = document
+let isWindow = global === window
+let w = isWindow ? global : window
 
-  /**
-   * [description]
-   * @param  {[type]} obj  [description]
-   * @param  {[type]} body [description]
-   * @return {[type]}      [description]
-   */
-  const updateObject = (obj, body) => {
-    var attrs = body.attributes;
-
-    for (var i = 0, size = attrs.length; i < size; i++) {
-      obj.attrs[attrs[i].name] = attrs[i].value
-    }
-
-    return obj
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} head [description]
-   * @param  {[type]} body [description]
-   * @return {[type]}      [description]
-   */
-  const updateHistory = (head, body) => {
-    var obj = this._updateObject({
-      head: head.innerHTML.trim(),
-      content: body.innerHTML.trim(),
-      attrs: {}
-    }, body)
-
-    w.history.pushState(obj, '', this.url)
-    w.addEventListener('popstate', this._updateBody.bind(this), false)
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} data [description]
-   * @return {[type]}      [description]
-   */
-  const DOMParser = (data) => {
-    var parser = new DOMParser()
-    return parser.parseFromString(data, 'text/html')
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} data [description]
-   * @return {[type]}      [description]
-   */
-  const updateBodyAttributes = (data) => {
-    Object.keys(data).forEach(function(key) {
-      var value = data[key]
-      doc.body.setAttribute(key, value)
-    })
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} e [description]
-   * @return {[type]}   [description]
-   */
-  const updateBody = (e) => {
-    this.beforeLoading().then(() => {
-      var data = e.state
-      this._updateBodyAttributes(data.attrs)
-      var dom = this._DOMParser(data.head)
-      var content = this._DOMParser(data.content)
-
-      this.updateContent(content.body).then(() => {
-        doc.title = dom.head.querySelector('title').innerText
-
-        this.url = w.location.href
-        this.start()
-      })
-    })
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} data [description]
-   * @return {[type]}      [description]
-   */
-  const update = (data) => {
-    var dom = this._DOMParser(data)
-    var head = dom.head
-    var body = dom.body
-
-    this.updateContent(body).then(() => {
-      doc.title = head.querySelector('title').innerText
-
-      this._updateHistory(head, body)
-      w.scrollTo(0, 0)
-      this.start()
-    })
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} element [description]
-   * @return {[type]}         [description]
-   */
-  const onClick = (element) => {
-    this.beforeLoading().then(() => {
-      this.url = element.href
-      M.ajax.get(this.url)
-        .then(this._update.bind(this))
-        .catch(this._update.bind(this))
-    })
-  }
-
-  /**
-   * [description]
-   * @return {[type]} [description]
-   */
-  const replaceHistory = () => {
-    var body = doc.body
-    var obj = this._updateObject({
-      head: doc.head.innerHTML.trim(),
-      content: body.innerHTML.trim(),
-      attrs: {}
-    }, body)
-
-    w.history.replaceState(obj, '', this.url)
-  }
-
-  /**
-   * [description]
-   * @return {[type]} [description]
-   */
-  const events = () => {
-    var that = this
-
-    w.addEventListener('keydown', (e) => {
-      if (e.metaKey || e.ctrlKey) {
-        that.metaKeyIsPressed = true
-      }
-    })
-
-    w.addEventListener('keyup', (e) => {
-      if (e.metaKey || e.ctrlKey) {
-        that.metaKeyIsPressed = false
-      }
-    })
-  }
-
-  /**
-   * [description]
-   * @param  {[type]} resolve [description]
-   * @param  {[type]} reject) {            resolve() } [description]
-   * @return {[type]}         [description]
-   */
-  const resolvePromise = new global.Promise(function (resolve, reject) { resolve() })
-
-  /**
-   * [description]
-   * @param  {[type]} params [description]
-   * @return {[type]}        [description]
-   */
-  const start = (params) => {
-    var obj = params || {}
-    this.beforeLoading = obj.beforeLoading || resolvePromise
-    this.updateContent = obj.updateContent || resolvePromise
-    var that = this
-    var links = obj.links || doc.querySelectorAll('a:not([target=_blank]):not([href^="#"]):not([data-loader-active="true"])');
-
-    links.forEach((element) => {
-      if (element.hostname !== w.location.hostname ||
-          element.protocol !== w.location.protocol ||
-          /#/.test(element.href)) {
-        return
-      }
-
-      element.addEventListener('click', (event) => {
-        if (!that.metaKeyIsPressed) {
-          event.preventDefault()
-          that._onClick.call(that, this)
-        }
-      }, false)
-
-      element.setAttribute('data-loader-active', 'true')
-    })
-
-    events()
-    replaceHistory()
-  }
-
-  return { start }
+let settings = {
+  beforeLoading: resolvePromise,
+  links: [],
+  selector: 'a:not([target=_blank])',
+  replaceContent: resolvePromise
 }
 
-export default mono()
+let elements = {}
+
+let state = {
+  metaKeyIsPressed: false,
+  url: ''
+}
+
+/**
+ * [description]
+ * @param  {} data [description]
+ * @return {DOM}      [description]
+ */
+const parseDOM = data => {
+  let parser = new DOMParser()
+  return parser.parseFromString(data, 'text/html')
+}
+
+/**
+ * Adds attributes of the body element to the state object.
+ * @param  {object} object  State object.
+ * @param  {[type]} body    Body element.
+ * @return {object}         State object.
+ */
+const updateObjectAttributes = (object, body) => {
+  let attrs = body.attributes
+
+  for (let i = 0, size = attrs.length; i < size; i++) {
+    object.attrs[attrs[i].name] = attrs[i].value
+  }
+
+  return object
+}
+
+/**
+ * [description]
+ * @param  {[type]} head [description]
+ * @param  {[type]} body [description]
+ * @return {[type]}      [description]
+ */
+const updateHistory = (url, head, body) => {
+  let object = updateObjectAttributes({
+    head: head.innerHTML.trim(),
+    body: body.innerHTML.trim(),
+    attrs: {}
+  }, body)
+
+  w.history.pushState(object, '', url)
+  w.addEventListener('popstate', updateOnPopState)
+}
+
+/**
+ * [description]
+ * @param  {[type]} data [description]
+ * @return {[type]}      [description]
+ */
+const updateBodyAttributes = (data) => {
+  Object.keys(data).forEach(key => {
+    let value = data[key]
+    document.body.setAttribute(key, value)
+  })
+}
+
+/**
+ * [description]
+ * @param  {[type]} e [description]
+ * @return {[type]}   [description]
+ */
+const updateOnPopState = event => {
+  settings.beforeLoading(event).then(() => {
+    let head = parseDOM(event.state.head)
+    let body = parseDOM(event.state.body)
+
+    updateBodyAttributes(event.state.attrs)
+
+    settings.replaceContent(body.body).then(() => {
+      document.title = head.head.querySelector('title').innerText
+
+      state.url = w.location.href
+      start()
+    })
+  })
+}
+
+/**
+ * [description]
+ * @param  {[type]} data [description]
+ * @return {[type]}      [description]
+ */
+const update = (url, data) => {
+  let dom = parseDOM(data)
+  let head = dom.head
+  let body = dom.body
+
+  settings.replaceContent(body).then(() => {
+    document.title = head.querySelector('title').innerText
+
+    updateHistory(url, head, body)
+    w.scrollTo(0, 0)
+    start()
+  })
+}
+
+/**
+ * [description]
+ * @param  {[type]} element [description]
+ * @return {[type]}         [description]
+ */
+const onClick = (element) => {
+  if (state.metaKeyIsPressed) return
+
+  let exitSequence = settings.beforeLoading(event)
+  let targetResponse = ajax.get(element.href)
+
+  Promise.all([exitSequence, targetResponse])
+    .then(values => {
+      update(element.href, values[1])
+    })
+    // TODO: Catch errors here.
+    // .catch(values => {
+
+    // })
+}
+
+/**
+ * [description]
+ * @return {[type]} [description]
+ */
+const replaceHistory = () => {
+  let object = updateObjectAttributes({
+    head: document.head.innerHTML.trim(),
+    body: document.body.innerHTML.trim(),
+    attrs: {}
+  }, document.body)
+
+  w.history.replaceState(object, '', state.url)
+}
+
+/**
+ * [description]
+ * @return {[type]} [description]
+ */
+const addKeyboardListeners = () => {
+  w.addEventListener('keydown', (event) => {
+    if (event.metaKey || event.ctrlKey) {
+      state.metaKeyIsPressed = true
+    }
+  })
+
+  w.addEventListener('keyup', (event) => {
+    if (event.metaKey || event.ctrlKey) {
+      state.metaKeyIsPressed = false
+    }
+  })
+}
+
+const addClickListener = element => {
+  if (element.getAttribute('data-loader-active') ||
+      element.hostname !== w.location.hostname ||
+      element.protocol !== w.location.protocol ||
+      /#/.test(element.href)) return
+
+  element.addEventListener('click', event => {
+    event.preventDefault()
+    onClick(event.currentTarget)
+  }, false)
+
+  element.setAttribute('data-loader-active', 'true')
+}
+
+/**
+ *
+ */
+const updateLinks = () => {
+  elements.links = document.querySelectorAll(settings.selector)
+  Array.from(elements.links).forEach(addClickListener)
+}
+
+/**
+ * Start Mono, configure settings, add event listeners.
+ * @param  {[type]} params [description]
+ * @return {[type]}        [description]
+ */
+const start = (params = {}) => {
+  settings = Object.assign(settings, params)
+
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual'
+  }
+
+  updateLinks()
+
+  addKeyboardListeners()
+  replaceHistory()
+}
+
+export default {
+  start,
+  updateLinks,
+  onClick
+}
