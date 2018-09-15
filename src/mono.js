@@ -13,7 +13,8 @@ let settings = {
   beforeLoading: resolvePromise,
   links: [],
   selector: 'a:not([target=_blank])',
-  replaceContent: resolvePromise
+  replaceContent: resolvePromise,
+  trackingEvents: () => {}
 }
 
 let elements = {}
@@ -94,6 +95,9 @@ const updateOnPopState = event => {
       document.title = head.head.querySelector('title').innerText
 
       state.url = w.location.href
+
+      settings.trackingEvents()
+
       start()
     })
   })
@@ -113,6 +117,9 @@ const update = (url, data) => {
     document.title = head.querySelector('title').innerText
 
     updateHistory(url, head, body)
+
+    settings.trackingEvents()
+
     w.scrollTo(0, 0)
     start()
   })
